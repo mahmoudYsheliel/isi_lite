@@ -5,11 +5,7 @@ import Dialog from 'primevue/dialog';
 import Fieldset from 'primevue/fieldset';
 
 import { subscribe } from '@src/lib/mediator';
-
-const dialog_pt = {
-    header: { style: 'padding: 8px 16px; font-size: 14px;' },
-    content: { style: 'padding: 8px 16px;' },
-};
+import { dialog_pt } from '@src/lib/theme';
 
 const dialog_visiable = ref(false);
 

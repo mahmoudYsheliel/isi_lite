@@ -5,9 +5,10 @@ import Tabs from 'primevue/tabs';
 import TabList from 'primevue/tablist';
 import Tab from 'primevue/tab';
 import ProgressSpinner from 'primevue/progressspinner';
+import { useToast } from 'primevue/usetoast';
 
-import { subscribe } from '@src/lib/mediator';
-import { request_data_resource } from '@src/lib/mqtt';
+import { post_event, subscribe } from '@src/lib/mediator';
+import { request_data_resource, mqtt_publish } from '@src/lib/mqtt';
 import { Room, Device, DeviceType } from '@src/lib/models';
 import Button from 'primevue/button';
 
@@ -25,7 +26,10 @@ import HouseLockIcon from '@src/components/icons/HouseLockIcon.vue';
 import ColorPaletteIcon from '@src/components/icons/ColorPaletteIcon.vue';
 import BrightnessIcon from '@src/components/icons/BrightnessIcon.vue';
 
+import Switch_4CH_Control from '../DeviceModals/Switch_4CH_Control.vue';
+
 let devices_cache: Device[] = [];
+const toast_service = useToast();
 
 const device_type_icon_map: Record<DeviceType, any> = {
     SWITCH_1CH: ToggleOnIcon,
@@ -42,7 +46,8 @@ const device_type_icon_map: Record<DeviceType, any> = {
 };
 
 const ON_STATES = [
-    'ON'
+    'ON',
+    'LOADING',
 ];
 
 const rooms = shallowRef<Room[]>([])
@@ -72,9 +77,39 @@ function compute_connection_icon_color(device: Device) {
         return 'var(--p-primary-color)';
 }
 
-function device_power_click(_device_uuid: string) {
-    // const device_mqtt_id = device_uuid.slice(-4);
-    // const power_mqtt_topic = `rpc/${device_mqtt_id}/command_power_0`;
+function device_power_click(device: Device) {
+    const { device_type, device_uuid } = device;
+    const device_mqtt_id = device_uuid.slice(-4);
+    sensor_state_main_map.value[device_mqtt_id] = 'LOADING';
+
+    if (device_type === 'SWITCH_1CH' || device_type === 'PLUG_1CH') {
+        const power_0_mqtt_topic = `rpc/${device_mqtt_id}/command_power_0`;
+        const success = mqtt_publish(power_0_mqtt_topic, 'X');
+        if (!success) {
+            toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
+            return;
+        }
+    }
+
+    else if (device_type === 'SWITCH_4CH') {
+        for (let i = 0; i < 4; i++) {
+            const power_i_mqtt_topic = `rpc/${device_mqtt_id}/command_power_${i}`;
+            const success = mqtt_publish(power_i_mqtt_topic, 'X');
+            if (!success) {
+                toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
+                return;
+            }
+        }
+    }
+}
+
+function device_control_click(device: Device) {
+    const { device_type, device_name, device_uuid } = device;
+    const device_mqtt_id = device_uuid.slice(-4);
+    if (device_type === 'SWITCH_4CH') {
+        post_event('show_device_switch_4ch_control_dialog', { device_name, device_mqtt_id });
+        return;
+    }
 }
 
 onMounted(() => {
@@ -106,33 +141,32 @@ onMounted(() => {
         sensor_state_main_map.value[device_mqtt_id] = payload;
     });
 
-    // subscribe('sensor_state', 'sensor_state_home_screen', args => {
-    //     // handle general sensor state
-    //     const device_mqtt_id: string = args.device_mqtt_id;
-    //     const payload: string = args.payload;
-    //     sensor_state_map.value[device_mqtt_id] = payload;
+    subscribe('sensor_state', 'sensor_state_home_screen', args => {
+        const device_mqtt_id: string = args.device_mqtt_id;
+        const device_pref: string = args.device_pref;
+        const payload: string = args.payload;
 
-    //     // handle temp humd sensors
-    //     const sensor_type: SensorType = args.sensor_type;
-    //     if (!(device_mqtt_id in sensor_room_map))
-    //         return;
-    //     const _room_id = sensor_room_map[device_mqtt_id];
-    //     if (sensor_type === 'TEMP') {
-    //         rooms.value[_room_id].temp = payload;
-    //         if (_room_id === current_room)
-    //             current_room_temp.value = payload;
-    //     } else if (sensor_type === 'HUMD') {
-    //         rooms.value[_room_id].humd = payload;
-    //         if (_room_id === current_room)
-    //             current_room_humd.value = payload;
-    //     }
-    // });
+        // handle temp humd sensors
+        if (!(device_mqtt_id in sensor_room_map))
+            return;
+        const _room_id = sensor_room_map[device_mqtt_id];
+        if (device_pref.startsWith('temp')) {
+            rooms.value[_room_id].temp = payload;
+            if (_room_id === current_room)
+                current_room_temp.value = payload;
+        } else if (device_pref.startsWith('humd')) {
+            rooms.value[_room_id].humd = payload;
+            if (_room_id === current_room)
+                current_room_humd.value = payload;
+        }
+    });
 });
 
 </script>
 
 <template>
     <div id="home_screen_cont">
+        <Switch_4CH_Control />
         <div id="temp_humd_section">
             <div class="th_section">
                 <div class="ths_icon_cont">
@@ -161,7 +195,7 @@ onMounted(() => {
         </Tabs>
         <h4 v-if="devices.length === 0">No Devices Found in This Room</h4>
         <div v-else id="devices_cont">
-            <div v-for="device in devices" class="device_card" v-ripple>
+            <div v-for="device in devices" class="device_card" v-ripple @click="device_control_click(device)">
                 <div class="card_header">
                     <component :is="device_type_icon_map[device.device_type]" class="card_icon" fill_color="var(--p-primary-color)" style="width: 24px; height: 24px;" />
                     <div style="width: 12px;"></div>
@@ -171,7 +205,7 @@ onMounted(() => {
                         <Button outlined style="margin-right: 8px;">
                             <SettingsIcon fill_color="var(--p-primary-color)" style="width: 16px; height: 16px;" />
                         </Button>
-                        <Button outlined :style="`background-color: ${ON_STATES.includes(sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--') ? 'var(--p-primary-color)' : '#FFFFFF'};`" @click="device_power_click(device.device_uuid)">
+                        <Button outlined :style="`background-color: ${ON_STATES.includes(sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--') ? 'var(--p-primary-color)' : '#FFFFFF'};`" @click="device_power_click(device)">
                             <PowerIcon :fill_color="ON_STATES.includes(sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--') ? '#FFFFFF' : 'var(--p-primary-color)'" style="width: 16px; height: 16px;" />
                         </Button>
                     </div>

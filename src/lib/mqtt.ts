@@ -5,18 +5,26 @@ let connection_id: string | null = null;
 let client: Paho.Client | null = null;
 
 function mqtt_read_handler(msg: Paho.Message) {
+    // mqtt data requests
     if (msg.destinationName.startsWith(`data/${connection_id}/response`)) {
         const data_resource = msg.destinationName.split('/').slice(-1)[0];
         post_event('data_response_' + data_resource, { payload: msg.payloadString });
-    } else if (msg.destinationName.startsWith('state/')) {
+    }
+
+    // mqtt device state
+    else if (msg.destinationName.startsWith('state/')) {
+        const [_, device_mqtt_id, device_pref] = msg.destinationName.split('/');
+        post_event('sensor_state', { device_mqtt_id, device_pref, payload: msg.payloadString });
+    }
+
+    // mqtt main state
+    else if (msg.destinationName.startsWith('_state/') && msg.destinationName.endsWith('/main')) {
         const device_mqtt_id = msg.destinationName.split('/')[1];
-        const device_pref = msg.destinationName.split('/')[2];
-        const device_pref_type = device_pref.split('_')[0];
-        post_event(`sensor_state_${device_pref_type}`, { device_mqtt_id, payload: msg.payloadString });
+        post_event('sensor_state_main', { device_mqtt_id, payload: msg.payloadString });
     }
 }
 
-function mqtt_publish(topic: string, payload: string): boolean {
+export function mqtt_publish(topic: string, payload: string): boolean {
     if (!client?.isConnected())
         return false;
 
@@ -47,7 +55,7 @@ export function mqtt_connect() {
         onFailure: () => post_event('mqtt_connection_err', {}),
     });
     client.onMessageArrived = mqtt_read_handler;
-    client.onConnectionLost = () => post_event('mqtt_connection_err', {});
+    client.onConnectionLost = (err) => post_event('mqtt_connection_err', { err });
 }
 
 export function attach_data_service() {
@@ -61,6 +69,7 @@ export function attach_sensor_service() {
     if (!client?.isConnected())
         return;
     client.subscribe('state/#');
+    client.subscribe('_state/#');
 }
 
 export function request_data_resource(data_resource: string, args: Object = {}): boolean {

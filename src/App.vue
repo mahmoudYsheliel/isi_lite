@@ -23,7 +23,9 @@ onMounted(() => {
     attach_sensor_service();
     toast_service.add({ severity: 'success', summary: 'Connected', detail: 'Connected to ISI Device Network', life: 3000 });
   });
-  subscribe('mqtt_connection_err', 'mqtt_connection_err_main', () => {
+  subscribe('mqtt_connection_err', 'mqtt_connection_err_main', err => {
+    console.log('MQTT-ERROR:');
+    console.log(err);
     toast_service.add({ severity: 'error', summary: 'Diconnected', detail: 'Can not Connect to ISI Device Network', life: 3000 });
   });
 });
