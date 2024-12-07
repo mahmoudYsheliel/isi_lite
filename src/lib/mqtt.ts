@@ -17,11 +17,11 @@ function mqtt_read_handler(msg: Paho.Message) {
         post_event('sensor_state', { device_mqtt_id, device_pref, payload: msg.payloadString });
     }
 
-    // mqtt main state
-    else if (msg.destinationName.startsWith('_state/') && msg.destinationName.endsWith('/main')) {
-        const device_mqtt_id = msg.destinationName.split('/')[1];
-        post_event('sensor_state_main', { device_mqtt_id, payload: msg.payloadString });
-    }
+    // // mqtt main state
+    // else if (msg.destinationName.startsWith('_state/') && msg.destinationName.endsWith('/main')) {
+    //     const device_mqtt_id = msg.destinationName.split('/')[1];
+    //     post_event('sensor_state_main', { device_mqtt_id, payload: msg.payloadString });
+    // }
 }
 
 export function mqtt_publish(topic: string, payload: string): boolean {
@@ -69,7 +69,7 @@ export function attach_sensor_service() {
     if (!client?.isConnected())
         return;
     client.subscribe('state/#');
-    client.subscribe('_state/#');
+//    client.subscribe('_state/#');
 }
 
 export function request_data_resource(data_resource: string, args: Object = {}): boolean {

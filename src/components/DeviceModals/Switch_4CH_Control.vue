@@ -3,10 +3,15 @@
 import { onMounted, ref } from 'vue';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
+import { useToast } from 'primevue/usetoast';
+
+import { mqtt_publish } from '@src/lib/mqtt';
 
 import { request_data_resource } from '@src/lib/mqtt';
 import { subscribe } from '@src/lib/mediator';
 import { dialog_pt } from '@src/lib/theme';
+
+const toast_service = useToast();
 
 const dialog_visiable = ref(false);
 const device_name = ref('Device Name');
@@ -44,8 +49,25 @@ onMounted(() => {
         switch_4ch_l3_state.value = __sm(switch_4ch.power_2);
         switch_4ch_l4_state.value = __sm(switch_4ch.power_3);
     });
+
+    subscribe('sensor_state', `sensor_state/${device_mqtt_id}/main`, args => {
+        if (!args)
+            return;
+        if (args.device_mqtt_id != device_mqtt_id) {
+            return
+        }
+        request_data_resource('switch_4ch_state', { device_mqtt_id });
+    })
 });
 
+function toggle_button_state(id: number) {
+    const power_i_mqtt_topic = `rpc/${device_mqtt_id}/command_power_${id}`;
+    const success = mqtt_publish(power_i_mqtt_topic, 'X');
+    if (!success) {
+        toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
+        return;
+    }
+}
 </script>
 
 <template>
@@ -54,10 +76,10 @@ onMounted(() => {
             <span style="font-size: 16px; font-weight: bold; margin-top: 8px;">{{ device_name }}</span>
         </template>
         <div id="switch_4ch_btns_cont">
-            <Button label="L1" outlined :class="{ switch_4ch_btn_active: switch_4ch_l1_state }" />
-            <Button label="L2" outlined :class="{ switch_4ch_btn_active: switch_4ch_l2_state }" />
-            <Button label="L3" outlined :class="{ switch_4ch_btn_active: switch_4ch_l3_state }" />
-            <Button label="L4" outlined :class="{ switch_4ch_btn_active: switch_4ch_l4_state }" />
+            <Button label="L1" outlined :class="{ switch_4ch_btn_active: switch_4ch_l1_state }" @click="() => { toggle_button_state(0) }" />
+            <Button label="L2" outlined :class="{ switch_4ch_btn_active: switch_4ch_l2_state }" @click="() => { toggle_button_state(1) }" />
+            <Button label="L3" outlined :class="{ switch_4ch_btn_active: switch_4ch_l3_state }" @click="() => { toggle_button_state(2) }" />
+            <Button label="L4" outlined :class="{ switch_4ch_btn_active: switch_4ch_l4_state }" @click="() => { toggle_button_state(3) }" />
         </div>
     </Dialog>
 </template>

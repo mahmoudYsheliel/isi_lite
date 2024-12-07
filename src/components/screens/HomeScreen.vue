@@ -92,13 +92,11 @@ function device_power_click(device: Device) {
     }
 
     else if (device_type === 'SWITCH_4CH') {
-        for (let i = 0; i < 4; i++) {
-            const power_i_mqtt_topic = `rpc/${device_mqtt_id}/command_power_${i}`;
-            const success = mqtt_publish(power_i_mqtt_topic, 'X');
-            if (!success) {
-                toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
-                return;
-            }
+        const power_i_mqtt_topic = `rpc/${device_mqtt_id}/command_power_X`;
+        const success = mqtt_publish(power_i_mqtt_topic, 'X');
+        if (!success) {
+            toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
+            return;
         }
     }
 }
@@ -135,17 +133,18 @@ onMounted(() => {
         request_data_resource('rooms');
         request_data_resource('devices');
     });
-    subscribe('sensor_state_main', 'sensor_state_main_home_screen', args => {
-        const device_mqtt_id: string = args.device_mqtt_id;
-        const payload: string = args.payload;
-        sensor_state_main_map.value[device_mqtt_id] = payload;
-    });
+    // subscribe('sensor_state_main', 'sensor_state_main_home_screen', args => {
+    //     const device_mqtt_id: string = args.device_mqtt_id;
+    //     const payload: string = args.payload;
+    //     sensor_state_main_map.value[device_mqtt_id] = payload;
+    // });
 
     subscribe('sensor_state', 'sensor_state_home_screen', args => {
         const device_mqtt_id: string = args.device_mqtt_id;
         const device_pref: string = args.device_pref;
         const payload: string = args.payload;
-
+        if (device_pref === 'main')
+            sensor_state_main_map.value[device_mqtt_id] = payload;
         // handle temp humd sensors
         if (!(device_mqtt_id in sensor_room_map))
             return;
@@ -205,7 +204,7 @@ onMounted(() => {
                         <Button outlined style="margin-right: 8px;">
                             <SettingsIcon fill_color="var(--p-primary-color)" style="width: 16px; height: 16px;" />
                         </Button>
-                        <Button outlined :style="`background-color: ${ON_STATES.includes(sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--') ? 'var(--p-primary-color)' : '#FFFFFF'};`" @click="device_power_click(device)">
+                        <Button outlined :style="`background-color: ${ON_STATES.includes(sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--') ? 'var(--p-primary-color)' : '#FFFFFF'};`" @click.stop="device_power_click(device)">
                             <PowerIcon :fill_color="ON_STATES.includes(sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--') ? '#FFFFFF' : 'var(--p-primary-color)'" style="width: 16px; height: 16px;" />
                         </Button>
                     </div>
