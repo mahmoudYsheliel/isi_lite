@@ -4,7 +4,7 @@ import { onBeforeMount, onMounted } from 'vue';
 import { useToast } from "primevue/usetoast";
 import Toast from 'primevue/toast';
 
-import { mqtt_connect, attach_data_service, attach_sensor_service } from '@src/lib/mqtt';
+import { mqtt_connect, attach_data_service, attach_sensor_service,attach_telem_notification } from '@src/lib/mqtt';
 import TopBar from '@src/components/TopBar.vue';
 import BottomBar from '@src/components/BottomBar.vue';
 import HomeScreen from '@src/components/screens/HomeScreen.vue';
@@ -21,6 +21,7 @@ onMounted(() => {
   subscribe('mqtt_connection_ok', 'mqtt_connection_ok_main', () => {
     attach_data_service();
     attach_sensor_service();
+    attach_telem_notification();
     toast_service.add({ severity: 'success', summary: 'Connected', detail: 'Connected to ISI Device Network', life: 3000 });
   });
   subscribe('mqtt_connection_err', 'mqtt_connection_err_main', err => {

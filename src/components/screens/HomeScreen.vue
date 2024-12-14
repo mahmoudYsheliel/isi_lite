@@ -27,6 +27,7 @@ import ColorPaletteIcon from '@src/components/icons/ColorPaletteIcon.vue';
 import BrightnessIcon from '@src/components/icons/BrightnessIcon.vue';
 
 import Switch_4CH_Control from '../DeviceModals/Switch_4CH_Control.vue';
+import Notification from '../notifications/Notification.vue';
 import Motion_Control from '../DeviceModals/Motion_Control.vue';
 
 let devices_cache: Device[] = [];
@@ -143,6 +144,11 @@ onMounted(() => {
     // subscribe('sensor_state_main', 'sensor_state_main_home_screen', args => {
     //     const device_mqtt_id: string = args.device_mqtt_id;
     //     const payload: string = args.payload;
+       
+    // });
+    // subscribe('sensor_state_main', 'sensor_state_main_home_screen', args => {
+    //     const device_mqtt_id: string = args.device_mqtt_id;
+    //     const payload: string = args.payload;
     //     sensor_state_main_map.value[device_mqtt_id] = payload;
     // });
 
@@ -150,6 +156,7 @@ onMounted(() => {
         const device_mqtt_id: string = args.device_mqtt_id;
         const device_pref: string = args.device_pref;
         const payload: string = args.payload;
+        sensor_state_main_map.value[device_mqtt_id] = payload;
         sensor_state_main_map.value[device_mqtt_id] = payload;
         // handle temp humd sensors
         if (!(device_mqtt_id in sensor_room_map))
@@ -172,6 +179,7 @@ onMounted(() => {
 <template>
     <div id="home_screen_cont">
         <Switch_4CH_Control />
+        <Notification />
         <Motion_Control />
         <div id="temp_humd_section">
             <div class="th_section">
@@ -217,6 +225,7 @@ onMounted(() => {
                     </div>
                 </div>
                 <h4 class="device_name">{{ device.device_name }}</h4>
+                <h4 class="device_state">{{!(device.link_type=='SUSPEND') ? sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--' : '--'}}</h4>
                 <h4 class="device_state">{{!(device.link_type=='SUSPEND') ? sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--' : '--'}}</h4>
             </div>
         </div>
