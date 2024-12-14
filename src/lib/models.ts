@@ -8,10 +8,10 @@ export interface Room {
     humd: string;
 };
 
-export interface DeviceConfig {
-    config_name: string;
-    config_val: string | number | boolean;
-};
+// export interface DeviceConfig {
+//     config_name: string;
+//     config_val: string | number | boolean;
+// };
 
 export interface Device {
     device_uuid: string;
@@ -20,7 +20,7 @@ export interface Device {
     device_type: DeviceType;
     link_type: LinkType;
     is_online: boolean;
-    device_config: DeviceConfig[];
+    device_config: object;
 };
 
 export interface ISINetworkConfig {
