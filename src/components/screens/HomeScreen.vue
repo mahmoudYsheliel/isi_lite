@@ -96,13 +96,11 @@ function device_power_click(device: Device) {
     }
 
     else if (device_type === 'SWITCH_4CH') {
-        for (let i = 0; i < 4; i++) {
-            const power_i_mqtt_topic = `rpc/${device_mqtt_id}/command_power_${i}`;
-            const success = mqtt_publish(power_i_mqtt_topic, 'X');
-            if (!success) {
-                toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
-                return;
-            }
+        const power_i_mqtt_topic = `rpc/${device_mqtt_id}/command_power_X`;
+        const success = mqtt_publish(power_i_mqtt_topic, 'X');
+        if (!success) {
+            toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
+            return;
         }
     }
     if (device_type === 'DIMMER_2CH' || device_type === 'DIMMER_4CH') {
@@ -160,26 +158,14 @@ onMounted(() => {
         request_data_resource('devices');
         
     });
-    // subscribe('sensor_state_main', 'sensor_state_main_home_screen', args => {
-    //     const device_mqtt_id: string = args.device_mqtt_id;
-    //     const payload: string = args.payload;
-       
-    // });
-    // subscribe('sensor_state_main', 'sensor_state_main_home_screen', args => {
-    //     const device_mqtt_id: string = args.device_mqtt_id;
-    //     const payload: string = args.payload;
-    //     sensor_state_main_map.value[device_mqtt_id] = payload;
-    // });
-    // subscribe('sensor_state_main', 'sensor_state_main_home_screen', args => {
-    //     const device_mqtt_id: string = args.device_mqtt_id;
-    //     const payload: string = args.payload;
-        
-    // });
+   
 
     subscribe('sensor_state', 'sensor_state_home_screen', args => {
         const device_mqtt_id: string = args.device_mqtt_id;
         const device_pref: string = args.device_pref;
         const payload: string = args.payload;
+        if (device_pref === 'main')
+            sensor_state_main_map.value[device_mqtt_id] = payload;
         sensor_state_main_map.value[device_mqtt_id] = payload;
         sensor_state_main_map.value[device_mqtt_id] = payload;
         sensor_state_main_map.value[device_mqtt_id] = payload;

@@ -17,11 +17,16 @@ function mqtt_read_handler(msg: Paho.Message) {
         post_event('sensor_state', { device_mqtt_id, device_pref, payload: msg.payloadString });
     }
 
+<<<<<<< HEAD
     // mqtt main state
+=======
+    // // mqtt main state
+>>>>>>> switch_4ch_and_plug
     // else if (msg.destinationName.startsWith('_state/') && msg.destinationName.endsWith('/main')) {
     //     const device_mqtt_id = msg.destinationName.split('/')[1];
     //     post_event('sensor_state_main', { device_mqtt_id, payload: msg.payloadString });
     // }
+<<<<<<< HEAD
     
     else if (msg.destinationName === 'telem/client/notif') {
 
@@ -37,6 +42,8 @@ function mqtt_read_handler(msg: Paho.Message) {
        
        
     }
+=======
+>>>>>>> switch_4ch_and_plug
 }
 
 export function mqtt_publish(topic: string, payload: string): boolean {
@@ -84,12 +91,16 @@ export function attach_sensor_service() {
     if (!client?.isConnected())
         return;
     client.subscribe('state/#');
+<<<<<<< HEAD
   //  client.subscribe('_state/#');
 }
 export function attach_telem_notification(){
     if (!client?.isConnected())
         return;
     client.subscribe("telem/client/notif");
+=======
+//    client.subscribe('_state/#');
+>>>>>>> switch_4ch_and_plug
 }
 
 export function request_data_resource(data_resource: string, args: Object = {}): boolean {
