@@ -111,6 +111,15 @@ function device_power_click(device: Device) {
             return;
         }
     }
+
+    else if (device_type === 'MOTION') {
+        const motion_0_mqtt_topic = `rpc/${device_mqtt_id}/command_motion_0`;
+        const success = mqtt_publish(motion_0_mqtt_topic, 'LIGHT');
+        if (!success) {
+            toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
+            return;
+        }
+    }
 }
 
 function device_control_click(device: Device) {
