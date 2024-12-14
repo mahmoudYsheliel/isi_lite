@@ -29,6 +29,8 @@ import BrightnessIcon from '@src/components/icons/BrightnessIcon.vue';
 import Switch_4CH_Control from '../DeviceModals/Switch_4CH_Control.vue';
 import Notification from '../notifications/Notification.vue';
 import Motion_Control from '../DeviceModals/Motion_Control.vue';
+import Dimmer_Control_2CH from '../DeviceModals/Dimmer_Control_2CH.vue';
+import Dimmer_Control_4CH from '../DeviceModals/Dimmer_Control_4CH.vue';
 
 let devices_cache: Device[] = [];
 const toast_service = useToast();
@@ -103,6 +105,14 @@ function device_power_click(device: Device) {
             }
         }
     }
+    if (device_type === 'DIMMER_2CH' || device_type === 'DIMMER_4CH') {
+        const dimmer_0_mqtt_topic = `rpc/${device_mqtt_id}/command_dimmer_x`;
+        const success = mqtt_publish(dimmer_0_mqtt_topic, '0');
+        if (!success) {
+            toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
+            return;
+        }
+    }
 }
 
 function device_control_click(device: Device) {
@@ -114,6 +124,14 @@ function device_control_click(device: Device) {
     }
     else if (device_type === 'MOTION') {
         post_event('show_device_motion_control_dialog', { device_name, device_mqtt_id,device_config });
+        return;
+    }
+    if (device_type === 'DIMMER_4CH') {
+        post_event('show_device_dimmer_4ch_control_dialog', { device_name, device_mqtt_id });
+        return;
+    }
+    if (device_type === 'DIMMER_2CH') {
+        post_event('show_device_dimmer_2ch_control_dialog', { device_name, device_mqtt_id });
         return;
     }
 }
@@ -140,6 +158,7 @@ onMounted(() => {
     subscribe('mqtt_data_service_ready', 'mqtt_data_service_ready_home_screen', () => {
         request_data_resource('rooms');
         request_data_resource('devices');
+        
     });
     // subscribe('sensor_state_main', 'sensor_state_main_home_screen', args => {
     //     const device_mqtt_id: string = args.device_mqtt_id;
@@ -151,11 +170,17 @@ onMounted(() => {
     //     const payload: string = args.payload;
     //     sensor_state_main_map.value[device_mqtt_id] = payload;
     // });
+    // subscribe('sensor_state_main', 'sensor_state_main_home_screen', args => {
+    //     const device_mqtt_id: string = args.device_mqtt_id;
+    //     const payload: string = args.payload;
+        
+    // });
 
     subscribe('sensor_state', 'sensor_state_home_screen', args => {
         const device_mqtt_id: string = args.device_mqtt_id;
         const device_pref: string = args.device_pref;
         const payload: string = args.payload;
+        sensor_state_main_map.value[device_mqtt_id] = payload;
         sensor_state_main_map.value[device_mqtt_id] = payload;
         sensor_state_main_map.value[device_mqtt_id] = payload;
         // handle temp humd sensors
@@ -181,6 +206,8 @@ onMounted(() => {
         <Switch_4CH_Control />
         <Notification />
         <Motion_Control />
+        <Dimmer_Control_2CH/>
+        <Dimmer_Control_4CH/>
         <div id="temp_humd_section">
             <div class="th_section">
                 <div class="ths_icon_cont">
