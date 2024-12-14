@@ -18,9 +18,24 @@ function mqtt_read_handler(msg: Paho.Message) {
     }
 
     // mqtt main state
-    else if (msg.destinationName.startsWith('_state/') && msg.destinationName.endsWith('/main')) {
-        const device_mqtt_id = msg.destinationName.split('/')[1];
-        post_event('sensor_state_main', { device_mqtt_id, payload: msg.payloadString });
+    // else if (msg.destinationName.startsWith('_state/') && msg.destinationName.endsWith('/main')) {
+    //     const device_mqtt_id = msg.destinationName.split('/')[1];
+    //     post_event('sensor_state_main', { device_mqtt_id, payload: msg.payloadString });
+    // }
+    
+    else if (msg.destinationName === 'telem/client/notif') {
+
+        const parsed_msg = JSON.parse(msg.payloadString)
+
+        const toast={
+            type:parsed_msg?.msg_lvl,
+            body: parsed_msg?.msg_body,
+            time:1000000,
+            title: `Room: ${parsed_msg?.room} \n Device: ${parsed_msg?.device}`
+        }
+        post_event('show_toast',toast );
+       
+       
     }
 }
 
@@ -69,7 +84,12 @@ export function attach_sensor_service() {
     if (!client?.isConnected())
         return;
     client.subscribe('state/#');
-    client.subscribe('_state/#');
+  //  client.subscribe('_state/#');
+}
+export function attach_telem_notification(){
+    if (!client?.isConnected())
+        return;
+    client.subscribe("telem/client/notif");
 }
 
 export function request_data_resource(data_resource: string, args: Object = {}): boolean {
