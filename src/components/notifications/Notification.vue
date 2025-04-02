@@ -18,7 +18,6 @@ const toast_service = useToast();
 onMounted(() => {
 
     subscribe('show_toast', 'show_toast_func', (args: any) => {
-        console.log(args)
         const pos = args.pos as ToastPosition;
         const type = args.type as ToastMsgType;
         const title = args.title as string | undefined;

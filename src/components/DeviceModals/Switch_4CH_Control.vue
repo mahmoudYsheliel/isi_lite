@@ -62,7 +62,7 @@ onMounted(() => {
 
 function toggle_button_state(id: number) {
     const power_i_mqtt_topic = `rpc/${device_mqtt_id}/command_power_${id}`;
-    const success = mqtt_publish(power_i_mqtt_topic, 'X');
+    const success = mqtt_publish(power_i_mqtt_topic, 'TOGGLE', device_name.value + '_' + id.toString());
     if (!success) {
         toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
         return;
@@ -81,10 +81,13 @@ function toggle_button_state(id: number) {
             <Button label="L3" outlined :class="{ switch_4ch_btn_active: switch_4ch_l3_state }" @click="() => { toggle_button_state(2) }" />
             <Button label="L4" outlined :class="{ switch_4ch_btn_active: switch_4ch_l4_state }" @click="() => { toggle_button_state(3) }" />
         </div>
+        <div class="scene_btn_container">
+            <Button label="Close" icon="pi pi-times" @click="dialog_visiable = false" />
+        </div>
     </Dialog>
 </template>
 
-<style lang="css">
+<style lang="css" scoped>
 .switch_4ch_btn_active {
     background-color: var(--p-primary-color) !important;
     color: #FFFFFF !important;

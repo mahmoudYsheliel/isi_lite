@@ -2,13 +2,16 @@
 
 import { shallowRef, onMounted } from 'vue';
 
-import { post_event } from '@src/lib/mediator';
-
+import { post_event,subscribe } from '@src/lib/mediator';
+import { delete_username_pass ,mqtt_disconnect, is_connected} from '@src/lib/mqtt';
 import HouseChimneyIcon from '@src/components/icons/HouseChimneyIcon.vue';
 import ChartSimpleIcon from '@src/components/icons/ChartSimpleIcon.vue';
 import MoonIcon from '@src/components/icons/MoonIcon.vue';
 import SettingsIcon from '@src/components/icons/SettingsIcon.vue';
 import SignOutAltIcon from '@src/components/icons/SignOutAltIcon.vue';
+import { useToast } from "primevue/usetoast";
+
+const toast_service = useToast()
 
 const bottom_bar_icons: any[] = [
     HouseChimneyIcon,   // 0
@@ -17,6 +20,10 @@ const bottom_bar_icons: any[] = [
     SettingsIcon,       // 3
     SignOutAltIcon,     // 4
 ];
+
+subscribe('bottom_bar_page_move','bottom_bar_page_move',(args)=>{
+    bottom_bar_button_click(args.index)
+})
 
 const icons_active_state = shallowRef(new Array(bottom_bar_icons.length).fill(false));
 
@@ -34,12 +41,21 @@ function __bbicmap(_active: boolean) {
         return 'var(--p-primary-color)';
 }
 
-function bottom_bar_button_click(idx: number) {
+function bottom_bar_button_click(indx: number) {
+    if (!is_connected() && indx!=3){
+        indx = 3
+        toast_service.add({ severity: 'warn', summary: 'Not Connected', detail: 'Connect to ISI Device Network First', life: 3000 });
+    }
+    if (indx==4){
+        console.log('Logout')
+        delete_username_pass()
+        mqtt_disconnect()
+        indx = 3
+    }
     const _active_state = new Array(bottom_bar_icons.length).fill(false);
-    _active_state[idx] = true;
+    _active_state[indx] = true;
     icons_active_state.value = _active_state;
-    if (idx === 3)
-        post_event('show_isi_network_config_dialog', {});
+    post_event('select_screen', {indx,mode:'Normal'});
 }
 
 onMounted(() => {

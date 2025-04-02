@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { onMounted, ref, computed, watch } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import Slider from 'primevue/slider';
@@ -28,24 +28,23 @@ const dimmer_1_active_switch = computed(() => {
 
 let device_mqtt_id = '';
 
-watch(dimmer_0_slider_value, () => {
-    const dimmer_0_mqtt_topic = `rpc/${device_mqtt_id}/command_dimmer_0`;
-    const success = mqtt_publish(dimmer_0_mqtt_topic, String(dimmer_0_slider_value.value));
+function send_command(dimmer_order:number) {
+    let val = 0
+    if (dimmer_order===0){
+        val=dimmer_0_slider_value.value
+    }
+    if (dimmer_order===1){
+        val=dimmer_1_slider_value.value
+    }
+
+    const dimmer_mqtt_topic = `rpc/${device_mqtt_id}/command_dimmer_${dimmer_order}`;
+    const success = mqtt_publish(dimmer_mqtt_topic, String(val),device_name.value + `_${dimmer_order}`);
     if (!success) {
         toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
         return;
     }
+}
 
-})
-watch(dimmer_1_slider_value, () => {
-    const dimmer_1_mqtt_topic = `rpc/${device_mqtt_id}/command_dimmer_1`;
-    const success = mqtt_publish(dimmer_1_mqtt_topic, String(dimmer_1_slider_value.value));
-    if (!success) {
-        toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
-        return;
-    }
-
-})
 onMounted(() => {
     subscribe('show_device_dimmer_2ch_control_dialog', 'show_device_dimmer_2ch_control_dialog', args => {
         const _device_name: string = args.device_name;
@@ -56,11 +55,9 @@ onMounted(() => {
         request_data_resource('dimmer_2ch_state', { device_mqtt_id })
     });
     subscribe('data_response_dimmer_2ch_state', 'data_response_dimmer_state', args => {
-       
-         if (!args)
+        if (!args)
             return;
         const dimmer = JSON.parse(args.payload);
-        
         dimmer_0_slider_value.value = Number(dimmer.dimmer_0)
         dimmer_1_slider_value.value = Number(dimmer.dimmer_1)
     });
@@ -76,35 +73,38 @@ onMounted(() => {
         </template>
         <div class="dimmers-container">
             <div class="dimmer_module_container">
-            <p class="dimmer_state_view">Light Intensity: {{ dimmer_0_slider_value }}</p>
-            <Slider class="dimmer_slider" v-model="dimmer_0_slider_value" />
-            <div class="dimmer_btns_cont">
+                <p class="dimmer_state_view">Light Intensity: {{ dimmer_0_slider_value }}</p>
+                <Slider class="dimmer_slider" v-model="dimmer_0_slider_value"  @slideend="()=>{send_command(0)}" />
+                <div class="dimmer_btns_cont">
 
-                <Button label=" " outlined :class="{ dimmer_btn_active: dimmer_0_active_switch == 0 }" @click="dimmer_0_slider_value = 0">
-                    <PowerIcon :fill_color="(dimmer_0_active_switch == 0) ? '#FFFFFF' : 'var(--p-primary-color)'" style="width: 12px; height: 12px;" />
-                </Button>
-                <Button label="1" outlined :class="{ dimmer_btn_active: dimmer_0_active_switch == 1 }" @click="dimmer_0_slider_value = 33" />
-                <Button label="2" outlined :class="{ dimmer_btn_active: dimmer_0_active_switch == 2 }" @click="dimmer_0_slider_value = 66" />
-                <Button label="3" outlined :class="{ dimmer_btn_active: dimmer_0_active_switch == 3 }" @click="dimmer_0_slider_value = 100" />
+                    <Button label=" " outlined :class="{ dimmer_btn_active: dimmer_0_active_switch == 0 }" @click="dimmer_0_slider_value = 0;send_command(0)">
+                        <PowerIcon :fill_color="(dimmer_0_active_switch == 0) ? '#FFFFFF' : 'var(--p-primary-color)'" style="width: 12px; height: 12px;" />
+                    </Button>
+                    <Button label="1" outlined :class="{ dimmer_btn_active: dimmer_0_active_switch == 1 }" @click="dimmer_0_slider_value = 33; send_command(0)" />
+                    <Button label="2" outlined :class="{ dimmer_btn_active: dimmer_0_active_switch == 2 }" @click="dimmer_0_slider_value = 66; send_command(0)" />
+                    <Button label="3" outlined :class="{ dimmer_btn_active: dimmer_0_active_switch == 3 }" @click="dimmer_0_slider_value = 100;send_command(0)" />
+                </div>
             </div>
-        </div>
 
-        <div class="dimmer_module_container">
-            <p class="dimmer_state_view">Light Intensity: {{ dimmer_1_slider_value }}</p>
-            <Slider class="dimmer_slider" v-model="dimmer_1_slider_value" />
-            <div class="dimmer_btns_cont">
+            <div class="dimmer_module_container">
+                <p class="dimmer_state_view">Light Intensity: {{ dimmer_1_slider_value }}</p>
+                <Slider class="dimmer_slider" v-model="dimmer_1_slider_value"  @slideend="()=>{send_command(1)}"/>
+                <div class="dimmer_btns_cont">
 
-                <Button label=" " outlined :class="{ dimmer_btn_active: dimmer_1_active_switch == 0 }" @click="dimmer_1_slider_value = 0">
-                    <PowerIcon :fill_color="(dimmer_1_active_switch == 0) ? '#FFFFFF' : 'var(--p-primary-color)'" style="width: 12px; height: 12px;" />
-                </Button>
-                <Button label="1" outlined :class="{ dimmer_btn_active: dimmer_1_active_switch == 1 }" @click="dimmer_1_slider_value = 33" />
-                <Button label="2" outlined :class="{ dimmer_btn_active: dimmer_1_active_switch == 2 }" @click="dimmer_1_slider_value = 66" />
-                <Button label="3" outlined :class="{ dimmer_btn_active: dimmer_1_active_switch == 3 }" @click="dimmer_1_slider_value = 100" />
+                    <Button label=" " outlined :class="{ dimmer_btn_active: dimmer_1_active_switch == 0 }" @click="dimmer_1_slider_value = 0;send_command(1)">
+                        <PowerIcon :fill_color="(dimmer_1_active_switch == 0) ? '#FFFFFF' : 'var(--p-primary-color)'" style="width: 12px; height: 12px;" />
+                    </Button>
+                    <Button label="1" outlined :class="{ dimmer_btn_active: dimmer_1_active_switch == 1 }" @click="dimmer_1_slider_value = 33;send_command(1)" />
+                    <Button label="2" outlined :class="{ dimmer_btn_active: dimmer_1_active_switch == 2 }" @click="dimmer_1_slider_value = 66;send_command(1)" />
+                    <Button label="3" outlined :class="{ dimmer_btn_active: dimmer_1_active_switch == 3 }" @click="dimmer_1_slider_value = 100;send_command(1)" />
+                </div>
             </div>
-        </div>
 
         </div>
-        
+        <div class="scene_btn_container">
+            <Button label="Close" icon="pi pi-times" @click="dialog_visiable = false" />
+        </div>
+
     </Dialog>
 </template>
 
@@ -136,9 +136,12 @@ onMounted(() => {
     justify-content: space-around;
     align-items: center;
 }
-.dimmers-container{
-display: flex;
-flex-direction: column;
-gap: 32px;
+
+.dimmers-container {
+    padding-inline: 16px;
+    padding-bottom:20px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
 }
 </style>

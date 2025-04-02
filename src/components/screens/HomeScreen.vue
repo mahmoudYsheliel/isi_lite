@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { onMounted, shallowRef, ref } from 'vue';
+import { onMounted, shallowRef, ref, onBeforeMount } from 'vue';
 import Tabs from 'primevue/tabs';
 import TabList from 'primevue/tablist';
 import Tab from 'primevue/tab';
@@ -8,11 +8,12 @@ import ProgressSpinner from 'primevue/progressspinner';
 import { useToast } from 'primevue/usetoast';
 
 import { post_event, subscribe } from '@src/lib/mediator';
-import { request_data_resource, mqtt_publish } from '@src/lib/mqtt';
+import { request_data_resource, mqtt_publish, mqtt_connect } from '@src/lib/mqtt';
 import { Room, Device, DeviceType } from '@src/lib/models';
 import Button from 'primevue/button';
 
 import TemperatureLowIcon from '@src/components/icons/TemperatureLowIcon.vue';
+import WindIcon from '../icons/WindIcon.vue';
 import HumidityIcon from '@src/components/icons/HumidityIcon.vue';
 import ToggleOnIcon from '@src/components/icons/ToggleOnIcon.vue';
 import SettingsSliders from '@src/components/icons/SettingsSliders.vue';
@@ -42,6 +43,7 @@ const device_type_icon_map: Record<DeviceType, any> = {
     DIMMER_4CH: BrightnessIcon,
     TEMP: TemperatureLowIcon,
     HUMD: HumidityIcon,
+    AIR_Q: WindIcon,
     PLUG_1CH: PlugBoltIcon,
     MOTION: SensorIcon,
     FLOOD: HouseFloodIcon,
@@ -56,7 +58,8 @@ const ON_STATES = [
 
 const rooms = shallowRef<Room[]>([])
 const current_room_temp = ref('-- C');
-const current_room_humd = ref('--%');
+const current_room_humd = ref('-- %');
+const current_room_air_q = ref('-- %');
 const devices = shallowRef<Device[]>([]);
 const sensor_state_main_map = ref<Record<string, string | null>>({});
 
@@ -67,6 +70,7 @@ function room_select(room_id: number) {
     current_room = room_id;
     current_room_temp.value = rooms.value[room_id].temp;
     current_room_humd.value = rooms.value[room_id].humd;
+    current_room_air_q.value = rooms.value[room_id].air_q;
     devices.value = devices_cache.filter(d => d.room_id === room_id);
 }
 
@@ -82,13 +86,13 @@ function compute_connection_icon_color(device: Device) {
 }
 
 function device_power_click(device: Device) {
-    const { device_type, device_uuid } = device;
+    const { device_type, device_uuid, device_name } = device;
     const device_mqtt_id = device_uuid.slice(-4);
     sensor_state_main_map.value[device_mqtt_id] = 'LOADING';
 
     if (device_type === 'SWITCH_1CH' || device_type === 'PLUG_1CH') {
         const power_0_mqtt_topic = `rpc/${device_mqtt_id}/command_power_0`;
-        const success = mqtt_publish(power_0_mqtt_topic, 'X');
+        const success = mqtt_publish(power_0_mqtt_topic, 'TOGGLE', device_name);
         if (!success) {
             toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
             return;
@@ -96,8 +100,8 @@ function device_power_click(device: Device) {
     }
 
     else if (device_type === 'SWITCH_4CH') {
-        const power_i_mqtt_topic = `rpc/${device_mqtt_id}/command_power_X`;
-        const success = mqtt_publish(power_i_mqtt_topic, 'X');
+        const power_i_mqtt_topic = `rpc/${device_mqtt_id}/command_power_x`;
+        const success = mqtt_publish(power_i_mqtt_topic, 'TOGGLE', device_name);
         if (!success) {
             toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
             return;
@@ -105,32 +109,25 @@ function device_power_click(device: Device) {
     }
     if (device_type === 'DIMMER_2CH' || device_type === 'DIMMER_4CH') {
         const dimmer_0_mqtt_topic = `rpc/${device_mqtt_id}/command_dimmer_x`;
-        const success = mqtt_publish(dimmer_0_mqtt_topic, '0');
+        const success = mqtt_publish(dimmer_0_mqtt_topic, '0', device_name);
         if (!success) {
             toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
             return;
         }
     }
 
-    else if (device_type === 'MOTION') {
-        const motion_0_mqtt_topic = `rpc/${device_mqtt_id}/command_motion_0`;
-        const success = mqtt_publish(motion_0_mqtt_topic, 'LIGHT');
-        if (!success) {
-            toast_service.add({ severity: 'error', summary: 'Device Error', detail: 'Device Unreachable', life: 3000 });
-            return;
-        }
-    }
 }
 
 function device_control_click(device: Device) {
-    const { device_type, device_name, device_uuid,device_config } = device;
+    const { device_type, device_name, device_uuid } = device;
     const device_mqtt_id = device_uuid.slice(-4);
+    const device_state = sensor_state_main_map.value[device_mqtt_id]
     if (device_type === 'SWITCH_4CH') {
         post_event('show_device_switch_4ch_control_dialog', { device_name, device_mqtt_id });
         return;
     }
     else if (device_type === 'MOTION') {
-        post_event('show_device_motion_control_dialog', { device_name, device_mqtt_id,device_config });
+        post_event('show_device_motion_control_dialog', { device_name, device_mqtt_id, device_state });
         return;
     }
     if (device_type === 'DIMMER_4CH') {
@@ -143,12 +140,21 @@ function device_control_click(device: Device) {
     }
 }
 
+onBeforeMount(() => {
+    const broker_ip = localStorage.getItem('broker_ip') ?? '127.0.0.1'
+    const username = localStorage.getItem('mqtt_username') ?? 'isi_muser'
+    const password = localStorage.getItem('mqtt_password') ?? 'oE74zxUFEY35JX5ffyx4zUZTSauYS2zCFVhvL6gZe5bsBCQo3tP2pCS5VrH98mvX'
+    mqtt_connect(broker_ip, username, password);
+});
+
+
 onMounted(() => {
     subscribe('data_response_rooms', 'data_response_rooms_home_screen', args => {
         const _rooms = JSON.parse(args.payload) as Room[];
         rooms.value = _rooms;
         current_room_temp.value = _rooms[0].temp;
         current_room_humd.value = _rooms[0].humd;
+        current_room_air_q.value = _rooms[0].air_q;
     });
     subscribe('data_response_devices', 'data_response_devices_home_screen', args => {
         const _devices = JSON.parse(args.payload) as Device[];
@@ -156,7 +162,7 @@ onMounted(() => {
 
         _devices.forEach(d => {
             const device_mqtt_id = d.device_uuid.slice(-4);
-            if (['TEMP', 'HUMD'].includes(d.device_type))
+            if (['TEMP', 'HUMD', 'AIR_Q'].includes(d.device_type))
                 sensor_room_map[device_mqtt_id] = d.room_id;
         });
 
@@ -165,31 +171,41 @@ onMounted(() => {
     subscribe('mqtt_data_service_ready', 'mqtt_data_service_ready_home_screen', () => {
         request_data_resource('rooms');
         request_data_resource('devices');
-        
+
     });
-   
+
 
     subscribe('sensor_state', 'sensor_state_home_screen', args => {
+
         const device_mqtt_id: string = args.device_mqtt_id;
         const device_pref: string = args.device_pref;
         const payload: string = args.payload;
         if (device_pref === 'main')
             sensor_state_main_map.value[device_mqtt_id] = payload;
-        sensor_state_main_map.value[device_mqtt_id] = payload;
-        sensor_state_main_map.value[device_mqtt_id] = payload;
-        sensor_state_main_map.value[device_mqtt_id] = payload;
+
         // handle temp humd sensors
         if (!(device_mqtt_id in sensor_room_map))
             return;
         const _room_id = sensor_room_map[device_mqtt_id];
         if (device_pref.startsWith('temp')) {
+            sensor_state_main_map.value[device_mqtt_id] = payload;
             rooms.value[_room_id].temp = payload;
-            if (_room_id === current_room)
+            if (_room_id === current_room) {
                 current_room_temp.value = payload;
+            }
         } else if (device_pref.startsWith('humd')) {
+            sensor_state_main_map.value[device_mqtt_id] = payload;
             rooms.value[_room_id].humd = payload;
-            if (_room_id === current_room)
+            if (_room_id === current_room) {
                 current_room_humd.value = payload;
+            }
+        }
+        else if (device_pref.startsWith('airq')) {
+            sensor_state_main_map.value[device_mqtt_id] = payload;
+            rooms.value[_room_id].air_q = payload;
+            if (_room_id === current_room) {
+                current_room_air_q.value = payload;
+            }
         }
     });
 });
@@ -201,25 +217,34 @@ onMounted(() => {
         <Switch_4CH_Control />
         <Notification />
         <Motion_Control />
-        <Dimmer_Control_2CH/>
-        <Dimmer_Control_4CH/>
+        <Dimmer_Control_2CH />
+        <Dimmer_Control_4CH />
         <div id="temp_humd_section">
             <div class="th_section">
                 <div class="ths_icon_cont">
-                    <TemperatureLowIcon :fill_color="'#FFFFFF'" style="width: 36px; height: 36px;" />
+                    <TemperatureLowIcon :fill_color="'#FFFFFF'" style="width: 32px; height: 32px;" />
                 </div>
                 <div class="ths_text_cont" style="color: #FFFFFF;">
                     <div style="font-size: 20px; font-weight: bold;">{{ current_room_temp }}</div>
-                    <div style="font-size: 14px; font-weight: normal;">Temprature</div>
+                    <div style="font-size: 14px; font-weight: normal;">Temp</div>
                 </div>
             </div>
             <div class="th_section">
                 <div class="ths_icon_cont">
-                    <HumidityIcon :fill_color="'#FFFFFF'" style="width: 36px; height: 36px;" />
+                    <WindIcon :fill_color="'#FFFFFF'" style="width: 32px; height: 32px;" />
+                </div>
+                <div class="ths_text_cont" style="color: #FFFFFF;">
+                    <div style="font-size: 20px; font-weight: bold;">{{ current_room_air_q }}</div>
+                    <div style="font-size: 14px; font-weight: normal;">AirQ</div>
+                </div>
+            </div>
+            <div class="th_section">
+                <div class="ths_icon_cont">
+                    <HumidityIcon :fill_color="'#FFFFFF'" style="width: 32px; height: 32px;" />
                 </div>
                 <div class="ths_text_cont" style="color: #FFFFFF;">
                     <div style="font-size: 20px; font-weight: bold;">{{ current_room_humd }}</div>
-                    <div style="font-size: 14px; font-weight: normal;">Humidity</div>
+                    <div style="font-size: 14px; font-weight: normal;">Humd</div>
                 </div>
             </div>
         </div>
@@ -241,14 +266,13 @@ onMounted(() => {
                         <Button outlined>
                             <SettingsIcon fill_color="var(--p-primary-color)" style="width: 16px; height: 16px;" />
                         </Button>
-                        <Button style="margin-left: 8px;" v-if="!(device.link_type ==='SUSPEND')" outlined :style="`background-color: ${ON_STATES.includes(sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--') ? 'var(--p-primary-color)' : '#FFFFFF'};`" @click="device_power_click(device)">
+                        <Button style="margin-left: 8px;" v-if="!(device.link_type === 'SUSPEND')" outlined :style="`background-color: ${ON_STATES.includes(sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--') ? 'var(--p-primary-color)' : '#FFFFFF'};`" @click.stop="device_power_click(device)">
                             <PowerIcon :fill_color="ON_STATES.includes(sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--') ? '#FFFFFF' : 'var(--p-primary-color)'" style="width: 16px; height: 16px;" />
                         </Button>
                     </div>
                 </div>
                 <h4 class="device_name">{{ device.device_name }}</h4>
-                <h4 class="device_state">{{!(device.link_type=='SUSPEND') ? sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--' : '--'}}</h4>
-                <h4 class="device_state">{{!(device.link_type=='SUSPEND') ? sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--' : '--'}}</h4>
+                <h4 class="device_state">{{ sensor_state_main_map[device.device_uuid.slice(-4)] ?? '--' }}</h4>
             </div>
         </div>
     </div>
@@ -306,8 +330,8 @@ onMounted(() => {
 }
 
 .ths_icon_cont {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -339,7 +363,7 @@ onMounted(() => {
     border-radius: 4px;
     height: fit-content;
     background-color: var(--p-primary-color);
-    padding: 12px 24px;
+    padding: 12px;
 }
 
 #home_screen_cont {
